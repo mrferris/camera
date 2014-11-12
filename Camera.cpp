@@ -7,7 +7,7 @@ Camera::Camera(){
   gige::InitImageProcAPI();
   gige_api = gige::GetGigEVisionAPI();
   image_proc = gige::GetImageProcAPI();
-
+  
   if(!gige_api->IsUsingKernelDriver()){
     std::cerr << "Not using filter driver, we should install that at some point." << std::endl;
   }
@@ -26,7 +26,7 @@ Camera::Camera(){
   if(device != NULL && device->Connect()){
     
     // enable trigger mode
-    bool status = device->SetStringNodeValue("TriggerMode", "Off");
+    bool status = device->SetStringNodeValue("TriggerMode", "On");
     // set software trigger mode
     status = device->SetStringNodeValue("TriggerSource", "Software");
     status = device->SetStringNodeValue("AcquisitionMode","Continuous");
@@ -36,18 +36,14 @@ Camera::Camera(){
 
   }
 
-
-  printf("Location: %p\n",&image_proc);
   saveImageAlg = image_proc -> GetAlgorithmByName("FileSave");
   demosaicAlg = image_proc -> GetAlgorithmByName("DemosaicBilinear");
-  printf("Got demosaic algo\n");
-
-  printf("Got save image algo\n");
-
+  
   saveImageAlg->CreateParams(&saveImageParams);
-  printf("Created save image params.\n");
-  saveImageParams->SetStringNodeValue("FilePath","~/EdisonPicture.bmp");
-  printf("Set file path.\n");
+  image_proc -> CreateBitmap(&demosaicBitmap);
+
+  saveImageParams->SetStringNodeValue("FilePath","EdisonPicture");
+
 
 }
 
@@ -65,7 +61,7 @@ Camera::~Camera(){
 
 
 void Camera::get_image(){
-  
+  device->CommandNodeExecute("TriggerSoftware");
   printf("In get_image.\n");
 
   if(!device->IsBufferEmpty()){
@@ -81,11 +77,19 @@ void Camera::get_image(){
       image_info->GetSize(sizeX,sizeY);
       std::cout << "X:" << sizeX << " Y: "<< sizeY << std::endl;
 
-      image_proc->ExecuteAlgorithm(demosaicAlg,image_info,demosaicBitmap);
-      printf("demosaic\n");
-      saveImageParams->SetStringNodeValue("FilePath","~/EdisonPicture.bmp");
-      image_proc->ExecuteAlgorithm(saveImageAlg,demosaicBitmap,gige::IImageBitmap(),saveImageParams);
-      printf("saved.\n");
+      if(!image_proc->ExecuteAlgorithm(demosaicAlg,image_info,demosaicBitmap)){
+	printf("Failed to demosaic.\n");
+      }
+      else{
+	printf("Demosaic.\n");
+      }
+
+      if(!image_proc->ExecuteAlgorithm(saveImageAlg,demosaicBitmap,gige::IImageBitmap(),saveImageParams)){
+	printf("Failed to save.\n");
+      }
+      else{
+	printf("saved.\n");
+      }
       printf("\n");
 
 
